@@ -19,10 +19,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def get_settings_defaults(self):
         return dict(
-            probeWidth = 50,
-            probeHeight = 50,
-            pointsX = 5,
-            pointsY = 5
+            probeWidth = 50, probeHeight = 50,
+            pointsX = 5, pointsY = 5,
+            offsetX = -26, offsetY = -40
         )
 
     def get_assets(self):
@@ -39,10 +38,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def get_template_vars(self):
         return dict(
-            probeWidth = self._settings.get(['probeWidth']),
-            probeHeight = self._settings.get(['probeHeight']),
-            pointsX = self._settings.get(['pointsX']),
-            pointsY = self._settings.get(['pointsY'])
+            probeWidth = self._settings.get(['probeWidth']), probeHeight = self._settings.get(['probeHeight']),
+            pointsX = self._settings.get(['pointsX']), pointsY = self._settings.get(['pointsY'])
         )
 
     def get_update_information(self):
@@ -95,8 +92,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         match = re.match('(?:ok )?X:([0-9\.\-]+) Y:([0-9\.\-]+) Z:([0-9\.\-]+)', line)
         if match and self.probePosition == -2:
             self.probePosition = 0
-            self.posX = float(match.group(1))
-            self.posY = float(match.group(2))
+            self.posX = float(match.group(1)) + self._settings.get(['offsetX'])
+            self.posY = float(match.group(2)) + self._settings.get(['offsetY'])
 
             # add current position offset to probe points
             self.probePoints = [[point[0] + self.posX, point[1] + self.posY, 0.0] for point in self.probePoints]
