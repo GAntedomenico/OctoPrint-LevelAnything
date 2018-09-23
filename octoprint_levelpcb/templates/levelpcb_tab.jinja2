@@ -1,0 +1,32 @@
+<table>
+    <tr>
+        <td>Probe area width</td>
+        <td class="input-append control-box">
+            <input type="number" class="input-mini" data-bind="value: probeWidth">
+            <span class="add-on">mm</span>
+        </td>
+        <td>Probe area height</td>
+        <td class="input-append control-box">
+            <input type="number" class="input-mini" data-bind="value: probeHeight">
+            <span class="add-on">mm</span>
+        </td>
+    </tr>
+    <tr>
+        <td>Point count X</td>
+        <td class="input-append control-box">
+            <input type="number" class="input-mini" data-bind="value: pointsX">
+            <span class="add-on">mm</span>
+        </td>
+        <td>Point count Y</td>
+        <td class="input-append control-box">
+            <input type="number" class="input-mini" data-bind="value: pointsY">
+            <span class="add-on">mm</span>
+        </td>
+    </tr>
+</table>
+
+<button class="btn btn-primary" data-bind="click: probeStart">{{ _('Start') }}</button>
+<button class="btn" data-bind="click: probeCancel">{{ _('Cancel') }}</button>
+<span data-bind="text: probeStatus">STATUS</span>
+
+<canvas width="568" height="568"></canvas>

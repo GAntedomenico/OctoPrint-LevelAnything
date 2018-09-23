@@ -1,0 +1,4 @@
+include README.md
+recursive-include octoprint_levelpcb/templates *
+recursive-include octoprint_levelpcb/translations *
+recursive-include octoprint_levelpcb/static *

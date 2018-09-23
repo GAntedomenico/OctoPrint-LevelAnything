@@ -1,0 +1,7 @@
+#tab_plugin_levelpcb button {
+    margin: 10px 0;
+}
+#tab_plugin_levelpcb table {
+    width: 100%;
+    border-collapse: collapse;
+}
