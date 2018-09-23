@@ -15,6 +15,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     probePoints = []
     probePosition = -1
     probeTimer = None
+    posX, posY = 0.0, 0.0
 
     def get_settings_defaults(self):
         return dict(
@@ -47,7 +48,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     def get_update_information(self):
         return dict(
             levelpcb=dict(
-                displayName='LevelPCB Plugin',
+                displayName='LevelPCB',
                 displayVersion=self._plugin_version,
 
                 # version check: github repository
@@ -76,31 +77,42 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probeStart(self, width, height, pointsX, pointsY):
-        # clear probe points and reset position
+        # clear probe points
         self.probePoints = []
-        self.probePosition = 0
         # calculate distance between probe points
         distX, distY = width / float(pointsX - 1), height / float(pointsY - 1)
         # fill array with probe points and a placeholder for the z-offset
         for y in range(0, pointsY):
             for x in range(0, pointsX):
                 self.probePoints.append([distX * x, distY * y, 0.0])
-        # start timeout timer, reset coordinates at current position and send first probe command
+        # get current printer position
+        self.setProbeStatus('Querying printer position')
+        self.probePosition = -2 # wait for 114
         self.startProbeTimer()
-        self.setProbeProgress()
-        self._printer.commands([
-            'G92 X0 Y0',
-            'G30 X%.3f Y%.3f' % (self.probePoints[0][0], self.probePoints[0][1])
-        ])
-        # self._printer.commands('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
-        #     self.probePoints[0][0], self.probePoints[0][1], random.random()
-        # ))
+        self._printer.commands('M114')
 
     def onGcodeReceived(self, comm, line, *args, **kwargs):
-        # match marlin G330 report
-        match = re.match('^Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)$', line)
+        match = re.match('(?:ok )?X:([0-9\.\-]+) Y:([0-9\.\-]+) Z:([0-9\.\-]+)', line)
+        if match and self.probePosition == -2:
+            self.probePosition = 0
+            self.posX = float(match.group(1))
+            self.posY = float(match.group(2))
+
+            # add current position offset to probe points
+            self.probePoints = [[point[0] + self.posX, point[1] + self.posY, 0.0] for point in self.probePoints]
+
+            # start timeout and send first probe command
+            self.probeTimer.cancel()
+            self.startProbeTimer()
+            self.setProbeProgress()
+            self._printer.commands('G30 X%.3f Y%.3f' % (self.probePoints[0][0], self.probePoints[0][1]))
+            self._printer.commands('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
+                self.probePoints[0][0], self.probePoints[0][1], random.random()
+            ))
+
+        match = re.match('Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)', line)
         # only evaluate matching command when probing is in progress (pos != -1)
-        if match and self.probePosition != -1:
+        if match and self.probePosition >= 0:
             # extract result from regex match
             x, y, z = float(match.group(1)), float(match.group(2)), float(match.group(3))
             # compare the points wanted for the array with the actual position reported by the printer
@@ -114,7 +126,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 self.probePoints[self.probePosition][2] = z
                 self.probePosition += 1
                 # send probe result to front-end
-                self._plugin_manager.send_plugin_message(self._identifier, dict(point = dict(x = x, y = y, z = z)))
+                self._plugin_manager.send_plugin_message(self._identifier, dict(point = dict(
+                    x = x - self.posX, y = y - self.posY, z = z
+                )))
                 if self.probePosition >= len(self.probePoints):
                     # position equals probe point count, stop timer and finish probing
                     self.probeTimer.cancel()
@@ -126,11 +140,11 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         self.probePoints[self.probePosition][0],
                         self.probePoints[self.probePosition][1]
                     ))
-                    # self._printer.commands('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
-                    #     self.probePoints[self.probePosition][0],
-                    #     self.probePoints[self.probePosition][1],
-                    #     random.random()
-                    # ))
+                    self._printer.commands('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
+                        self.probePoints[self.probePosition][0],
+                        self.probePoints[self.probePosition][1],
+                        random.random()
+                    ))
 
         # we need to return the unmodified line for display in terminal
         return line
@@ -156,7 +170,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     def coordsEqual(self, float1, float2):
         return abs(float1 - float2) < 0.1
 
-__plugin_name__ = 'LevelPCB Plugin'
+__plugin_name__ = 'LevelPCB'
 
 def __plugin_load__():
     global __plugin_implementation__
