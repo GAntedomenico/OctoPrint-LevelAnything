@@ -42,10 +42,12 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 offset_x = 0,
                 offset_y = 0,
                 lift = 0,
+                lift_feed = 300,
                 fade = 2,
                 safe_homing = False,
                 home_x = 100,
-                home_y = 100
+                home_y = 100,
+                home_feed = 3000
             ))),
             selected_profile = 'disabled',
             response_timeout = 20.0,
@@ -92,7 +94,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
                 # send G30 to execute Z probe at position
-                cmd = ['G30 X%.3f Y%.3f' % (point[0], point[1])]
+                cmd = ['G30 X%.3f Y%.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'])]
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
                     cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0], point[1], 0.5))
@@ -259,23 +261,26 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             else:
                 # z-value did not exist in command, append at the end
                 return '%s Z%.3f' % (cmd, self.last_z + average_z)
-        elif gcode and gcode == 'G28' and 'z' in cmd.lower() and self.profile['safe_homing']:
+        elif gcode and gcode == 'G28' and 'Z' in cmd.upper() and self.profile['safe_homing']:
             commands = []
             # lift carriage if setting is positive, respecting current positioning mode
             if self.profile['lift'] > 0:
-                lift = 'G0 Z%.3f' % self.profile['lift']
-                if self.position_absolute:
-                    commands.extend(['G91', 'G0 Z%.3f' % self.profile['lift'], 'G90'])
-                else:
-                    commands.append(lift)
+                commands.extend([
+                    'G91',
+                    'G0 Z%.3f F%.3f' % (self.profile['lift'], self.profile['lift_feed'])
+                ])
             # prepend movement command to homing command
             commands.extend([
-                'G0 X%.3f Y%.3f' % (
+                'G90',
+                'G0 X%.3f Y%.3f F%.3f' % (
                     self.profile['home_x'] + self.profile['offset_x'],
-                    self.profile['home_y'] + self.profile['offset_x']
+                    self.profile['home_y'] + self.profile['offset_y'],
+                    self.profile['home_feed']
                 ),
                 cmd
             ])
+            if not self.position_absolute:
+                commands.append('G91')
             # we don't know where the printer moves to, clear last coordinates
             self.last_x = self.last_y = self.last_z = 0.0
             return commands

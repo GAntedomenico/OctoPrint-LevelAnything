@@ -100,6 +100,13 @@
                     </div>
                     <div class="help-block">{{ _('Lift probe before G28 and G30 to prevent hitting the workpiece or the bed') }}</div>
                 </div>
+                <label class="control-label">{{ _('Z Feed rate') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.lift_feed">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
             </div>
             <div class="control_group">
                 <div class="controls">
@@ -120,6 +127,13 @@
                 <div class="controls">
                     <div class="input-append">
                         <input type="number" class="input-mini" data-bind="textInput: profile.home_y, enable: profile.safe_homing">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
+                <label class="control-label">{{ _('X/Y Feed rate') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.home_feed, enable: profile.safe_homing">
                         <span class="add-on">mm</span>
                     </div>
                 </div>
