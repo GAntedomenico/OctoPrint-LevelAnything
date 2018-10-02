@@ -257,9 +257,11 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             for p in points_nearby:
                 factor = 1.0
                 if total_distance == 0:
+                    # point is exactly on a measured point, all 4 points are the same, use equal weighting
                     factor = 1 / float(len(points_nearby))
                 else:
-                    factor = p[3] / total_distance
+                    # point is between a set of measured points, weight by distance, the closer the higher
+                    factor = 1 - (p[3] / total_distance)
                 average_z += p[2] * factor
 
             # store last X/Y/Z
