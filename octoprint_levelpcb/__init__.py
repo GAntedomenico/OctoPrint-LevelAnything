@@ -41,6 +41,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 count_y = 5,
                 offset_x = 0,
                 offset_y = 0,
+                offset_z = 0,
                 lift = 0,
                 lift_feed = 300,
                 fade = 2,
@@ -78,6 +79,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probe_start(self):
+        # home first
+        self.send_command('G28')
+
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
         dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -97,7 +101,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 cmd = ['G30 X%.3f Y%.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'])]
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
-                    cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0], point[1], 0.5))
+                    cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'], 0.5))
                 response = self.send_command(
                     cmd, 'Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)'
                 )
@@ -137,7 +141,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     # sends a command to the printer and waits for the specified response
     command_event = command_regex = command_match = None
-    def send_command(self, command, responseRegex):
+    def send_command(self, command, responseRegex = ''):
+        if responseRegex is '':
+            self._printer.commands(command)
+            return None
         self.command_event = Event()
         self.command_regex = responseRegex
         self._printer.commands(command)
@@ -265,12 +272,14 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 return '%s Z%.3f' % (cmd, self.last_z + average_z)
         elif gcode and gcode == 'G28' and self.profile['safe_homing']:
             commands = []
-            if cmd == 'G28' or 'Z' in cmd.upper():
+            if cmd == 'G28':
                 # command homes z-axis, home x/y first
                 commands.append('G28 X Y')
-            else:
+            elif 'Z' not in cmd.upper():
                 # command does not home z-axis, do nothing
                 return cmd
+            # set z-offset
+            commands.append('M851 Z%.3f' % self.profile['offset_z'])
             # lift carriage if setting is positive, respecting current positioning mode
             if self.profile['lift'] > 0:
                 commands.extend([
