@@ -176,9 +176,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             if len(self.profile['matrix']) == 0:
                 # we have no matrix, do nothing
                 return cmd
-            elif not self.position_absolute:
-                # printer is in relative mode and we have no idea where we are, do nothing
-                return cmd
 
             # calculate z-offset at given position
             # first get X/Y/Z-coordinates from command
@@ -187,15 +184,18 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             match_z = re.search('Z([\-\d\.]+)', cmd, re.IGNORECASE)
             x = y = z = 0.0
             if match_x:
-                x = float(match_x.group(1))
+                if self.position_absolute: x = float(match_x.group(1))
+                else: x = self.last_x + float(match_x.group(1))
             else:
                 x = self.last_x
             if match_y:
-                y = float(match_y.group(1))
+                if self.position_absolute: y = float(match_y.group(1))
+                else: y = self.last_y + float(match_y.group(1))
             else:
                 y = self.last_y
             if match_z:
-                z = float(match_z.group(1))
+                if self.position_absolute: z = float(match_z.group(1))
+                else: z = self.last_z + float(match_z.group(1))
             else:
                 z = self.last_z
             # calculate surrounding matrix points
