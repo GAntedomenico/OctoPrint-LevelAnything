@@ -1,32 +1,158 @@
-<table>
-    <tr>
-        <td>Probe area width</td>
-        <td class="input-append control-box">
-            <input type="number" class="input-mini" data-bind="value: probeWidth">
-            <span class="add-on">mm</span>
-        </td>
-        <td>Probe area height</td>
-        <td class="input-append control-box">
-            <input type="number" class="input-mini" data-bind="value: probeHeight">
-            <span class="add-on">mm</span>
-        </td>
-    </tr>
-    <tr>
-        <td>Point count X</td>
-        <td class="input-append control-box">
-            <input type="number" class="input-mini" data-bind="value: pointsX">
-            <span class="add-on">mm</span>
-        </td>
-        <td>Point count Y</td>
-        <td class="input-append control-box">
-            <input type="number" class="input-mini" data-bind="value: pointsY">
-            <span class="add-on">mm</span>
-        </td>
-    </tr>
-</table>
+<legend>Selected probe</legend>
+<select data-bind="options: profileNames, value: selectedProfileName, disable: isProbing"></select>
+<button class="btn" data-bind="click: addProfileClick, disable: isProbing">{{ _('Add') }}</button>
+<button class="btn btn-danger" data-bind="click: removeProfileClick, visible: !isDisabled(), disable: isProbing()">{{ _('Remove') }}</button>
 
-<button class="btn btn-primary" data-bind="click: probeStart">{{ _('Start') }}</button>
-<button class="btn" data-bind="click: probeCancel">{{ _('Cancel') }}</button>
-<span data-bind="text: probeStatus">STATUS</span>
+<div data-bind="visible: !isDisabled()">
+<legend>Configuration</legend>
+<form class="form-horizontal">
+    <ul class="nav nav-pills">
+        <li class="active"><a href="#levelpcb_tab_area" data-toggle="tab">{{ _('Area') }}</a></li>
+        <li><a href="#levelpcb_tab_probing" data-toggle="tab">{{ _('Probing') }}</a></li>
+        <li><a href="#levelpcb_tab_rewriting" data-toggle="tab">{{ _('Rewriting') }}</a></li>
+        <li><a href="#levelpcb_tab_safety" data-toggle="tab">{{ _('Safety') }}</a></li>
+    </ul>
+    <div class="tab-content">
+        <div id="levelpcb_tab_area" class="tab-pane active">
+            <div class="control-group">
+                <label class="control-label">{{ _('Probe X from') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.min_x">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <span class="separator">{{ _('to') }}</span>
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.max_x">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
+                <label class="control-label">{{ _('Probe Y from') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.min_y">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <span class="separator">{{ _('to') }}</span>
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.max_y">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <div class="help-block">{{ _('Probe points will be distributed equally within this area.') }}</div>
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">{{ _('Probe a total of') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.count_x">
+                        <span class="add-on">{{ _('points on the X axis') }}</span>
+                    </div>
+                </div>
+                <label class="control-label">{{ _('Probe a total of') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.count_y">
+                        <span class="add-on">{{ _('points on the Y axis') }}</span>
+                    </div>
+                    <div class="help-block">{{ _('Keep in mind that your machine will have to probe x * y points, which could take some time.') }}</div>
+                </div>
+            </div>
+        </div>
+        <div id="levelpcb_tab_probing" class="tab-pane">
+            <div class="control-group">
+                <label class="control-label">{{ _('Probe offset X') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.offset_x">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
+                <label class="control-label">{{ _('Probe offset Y') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.offset_y">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <div class="help-block">{{ _('The offset of your probe relative to your nozzle/laser/carving bit. Values can be negative.') }}</div>
+                </div>
+            </div>
+        </div>
+        <div id="levelpcb_tab_rewriting" class="tab-pane">
+            <div class="control-group">
+                <label class="control-label">{{ _('Fade Z-correction') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.fade">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <div class="help-block">{{ _('If set to a positive value, Z-correction will get smaller and smaller until the specified height is reached, where any adjustments will be turned off completely.') }}</div>
+                </div>
+            </div>
+        </div>
+        <div id="levelpcb_tab_safety" class="tab-pane">
+            <div class="control-group">
+                <label class="control-label">{{ _('Lift probe by') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.lift">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <div class="help-block">{{ _('Lift probe before G28 and G30 to prevent hitting the workpiece or the bed') }}</div>
+                </div>
+            </div>
+            <div class="control_group">
+                <div class="controls">
+                    <label class="checkbox">
+                        <input type="checkbox" data-bind="checked: profile.safe_homing">
+                        {{ _('This probe requires safe z-homing') }}
+                    </label>
+                    <span class="help-block">{{ _('Move probe to specified position before G28') }}</span>
+                </div>
+                <label class="control-label">{{ _('Homing position X') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.home_x, enable: profile.safe_homing">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
+                <label class="control-label">{{ _('Homing position Y') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.home_y, enable: profile.safe_homing">
+                        <span class="add-on">mm</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<button class="btn btn-primary" data-bind="click: probeStartClick, disable: isProbing">{{ _('Save & Start') }}</button>
+<button class="btn" data-bind="click: probeCancelClick, enable: isProbing">{{ _('Cancel') }}</button>
+<span data-bind="text: statusText">{{ _('Ready') }}</span>
 
 <canvas width="568" height="568"></canvas>
+</div>
+
+<div class="modal hide fade" role="dialog" id="levelpcb_modal_add">
+    <div class="modal-body">
+        <legend>{{ _('Create new profile') }}</legend>
+        <label class="control-label">{{ _('Profile name') }}</label>
+        <div class="controls">
+            <input type="text" data-bind="textInput: newProfileName, valueUpdate: 'input'">
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn" data-bind="click: function() { addProfileModal.modal('hide'); }">{{ _('Cancel') }}</button>
+        <button class="btn btn-primary" data-bind="click: addProfileOkClick, enable: newProfileName().length > 0">{{ _('OK') }}</button>
+    </div>
+</div>
+
+<div class="modal hide fade" role="dialog" id="levelpcb_modal_remove">
+    <div class="modal-body" data-bind="html: gettext('Really remove profile <code>{name}</code>?').replace('{name}', selectedProfileName())"></div>
+    <div class="modal-footer">
+        <button class="btn" data-bind="click: function() { removeProfileModal.modal('hide'); }">{{ _('Cancel') }}</button>
+        <button class="btn btn-danger" data-bind="click: removeProfileOkClick">{{ _('Confirm') }}</button>
+    </div>
+</div>
