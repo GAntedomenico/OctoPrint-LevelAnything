@@ -276,12 +276,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 return '%s Z%.3f' % (cmd, self.last_z + average_z)
         elif gcode and gcode == 'G28' and self.profile['safe_homing']:
             commands = []
-            if cmd == 'G28':
-                # command homes z-axis, home x/y first
-                commands.append('G28 X Y')
-            elif 'Z' not in cmd.upper():
-                # command does not home z-axis, do nothing
+            if 'Z' not in cmd.upper() and ('X' in cmd.upper() or 'Y' in cmd.upper()):
+                # command homes X or Y but not Z, do nothing
                 return cmd
+            commands.append('G28 X Y')
             # set z-offset
             commands.append('M851 Z%.3f' % self.profile['offset_z'])
             # lift carriage if setting is positive, respecting current positioning mode
