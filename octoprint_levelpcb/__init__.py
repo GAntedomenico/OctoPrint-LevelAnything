@@ -185,62 +185,80 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             index_x = (x - self.profile['min_x']) / dist_x
             index_y = (y - self.profile['min_y']) / dist_y
             # find out where the point is relative to the matrix
-            nearby = []
+            index_nearby = []
             if x < self.profile['min_x']:
                 if y < self.profile['min_y']:
                     # point is top left of matrix
-                    nearby.append([0, 0])
+                    index_nearby.append([0, 0])
                 elif y > self.profile['max_y']:
                     # point is bottom left of matrix
-                    nearby.append([0, self.profile['count_y'] - 1])
+                    index_nearby.append([0, self.profile['count_y'] - 1])
                 else:
                     # point is left of matrix
-                    nearby.append([0, math.floor(index_y)])
-                    nearby.append([0, math.ceil(index_y)])
+                    index_nearby.append([0, math.floor(index_y)])
+                    index_nearby.append([0, math.ceil(index_y)])
             elif x > self.profile['max_x']:
                 if y < self.profile['min_y']:
                     # point is top right of matrix
-                    nearby.append([self.profile['count_x'] - 1, 0])
+                    index_nearby.append([self.profile['count_x'] - 1, 0])
                 elif y > self.profile['max_y']:
                     # point is bottom right of matrix
-                    nearby.append([self.profile['count_x'] - 1, self.profile['count_y'] - 1])
+                    index_nearby.append([self.profile['count_x'] - 1, self.profile['count_y'] - 1])
                 else:
                     # point is right of matrix
-                    nearby.append([self.profile['count_x'] - 1, math.floor(index_y)])
-                    nearby.append([self.profile['count_x'] - 1, math.ceil(index_y)])
+                    index_nearby.append([self.profile['count_x'] - 1, math.floor(index_y)])
+                    index_nearby.append([self.profile['count_x'] - 1, math.ceil(index_y)])
             else:
                 if y < self.profile['min_y']:
                     # point is top of matrix
-                    nearby.append([math.floor(index_x), 0])
-                    nearby.append([math.ceil(index_x), 0])
+                    index_nearby.append([math.floor(index_x), 0])
+                    index_nearby.append([math.ceil(index_x), 0])
                 elif y > self.profile['max_y']:
                     # point is bottom of matrix
-                    nearby.append([math.floor(index_x), self.profile['count_y'] - 1])
-                    nearby.append([math.ceil(index_x), self.profile['count_y'] - 1])
+                    index_nearby.append([math.floor(index_x), self.profile['count_y'] - 1])
+                    index_nearby.append([math.ceil(index_x), self.profile['count_y'] - 1])
                 else:
                     # point is inside matrix, use all 4 nearby points
-                    nearby = [
+                    index_nearby = [
                         [ math.floor(index_x), math.floor(index_y) ],
                         [ math.ceil(index_x),  math.floor(index_y) ],
                         [ math.floor(index_x), math.ceil(index_y)  ],
                         [ math.ceil(index_x),  math.ceil(index_y)  ]
-                    ]
+                    ]            
+
+            points_nearby = []
+            total_distance = 0.0
+            for i in index_nearby:
+                point = self.profile['matrix'][int(i[1]) * int(self.profile['count_x']) + int(i[0])]
+                distance = math.sqrt((x - point[0]) ** 2 + (y - point[1]) ** 2)
+                total_distance += distance
+                points_nearby.append(point + [distance])
             
             self._logger.info('++++')
-            for n in nearby:
-                self._logger.info(self.profile['matrix'][int(n[1]) * int(self.profile['count_x']) + int(n[0])])
+            average_z = 0.0
+            for p in points_nearby:
+                self._logger.info(p)
+                factor = 1.0
+                if total_distance == 0:
+                    factor = 1 / float(len(points_nearby))
+                else:
+                    factor = p[3] / total_distance
+                average_z += p[2] * factor
+            self._logger.info(average_z)
             self._logger.info('----')
 
             # store last X/Y
             self.last_x = x
             self.last_y = y
 
-            # insert z-offset
+            # insert calculated z-offset
             if match_z:
                 self.last_z = float(match_z.group(1))
-                return cmd[:match_z.start()] + 'Z%.3f' % 1.234 + cmd[match_z.end():]
+                # z-value is replaced with new value
+                return cmd[:match_z.start()] + 'Z%.3f' % (z + average_z) + cmd[match_z.end():]
             else:
-                return '%s Z%.3f' % (cmd, 1.234 + self.last_z)
+                # z-value did not exist in command, append at the end
+                return '%s Z%.3f' % (cmd, self.last_z + average_z)
         elif gcode and gcode == 'G28' and 'z' in cmd.lower() and self.profile['safe_homing']:
             commands = []
             # lift carriage if setting is positive, respecting current positioning mode
