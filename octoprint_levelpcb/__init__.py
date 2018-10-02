@@ -106,7 +106,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     return
 
                 # extract result from regex match
-                act_x, act_y, act_z = float(response.group(1)), float(response.group(2)), float(response.group(3))
+                act_x = float(response.group(1)) - self.profile['offset_x']
+                act_y = float(response.group(2)) - self.profile['offset_y']
+                act_z = float(response.group(3))
 
                 # compare the points we want to the actual position reported by the printer
                 if not self.coords_equal(act_x, point[0]) or not self.coords_equal(act_y, point[1]):
