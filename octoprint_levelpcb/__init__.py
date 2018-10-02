@@ -263,7 +263,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 return '%s Z%.3f' % (cmd, self.last_z + average_z)
         elif gcode and gcode == 'G28' and self.profile['safe_homing']:
             commands = []
-            if cmd == 'G28' or 'Z' in command.upper():
+            if cmd == 'G28' or 'Z' in cmd.upper():
                 # command homes z-axis, home x/y first
                 commands.append('G28 X Y')
             else:
