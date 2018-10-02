@@ -190,6 +190,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 y = float(match_y.group(1))
             else:
                 y = self.last_y
+            if match_z:
+                z = float(match_z.group(1))
+            else:
+                z = self.last_z
             # calculate surrounding matrix points
             dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
             dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -244,27 +248,23 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 distance = math.sqrt((x - point[0]) ** 2 + (y - point[1]) ** 2)
                 total_distance += distance
                 points_nearby.append(point + [distance])
-            
-            self._logger.info('++++')
+
             average_z = 0.0
             for p in points_nearby:
-                self._logger.info(p)
                 factor = 1.0
                 if total_distance == 0:
                     factor = 1 / float(len(points_nearby))
                 else:
                     factor = p[3] / total_distance
                 average_z += p[2] * factor
-            self._logger.info(average_z)
-            self._logger.info('----')
 
-            # store last X/Y
+            # store last X/Y/Z
             self.last_x = x
             self.last_y = y
+            self.last_z = z
 
             # insert calculated z-offset
             if match_z:
-                self.last_z = float(match_z.group(1))
                 # z-value is replaced with new value
                 return cmd[:match_z.start()] + 'Z%.3f' % (z + average_z) + cmd[match_z.end():]
             else:
