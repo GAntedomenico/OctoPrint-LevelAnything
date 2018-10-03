@@ -289,7 +289,11 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 return cmd[:match_z.start()] + 'Z%.3f' % (z + average_z) + cmd[match_z.end():]
             else:
                 # z-value did not exist in command, append at the end
-                return '%s Z%.3f' % (cmd, self.last_z + average_z)
+                if self.position_absolute:
+                    return '%s Z%.3f' % (cmd, self.last_z + average_z)
+                else:
+                    return '%s Z%.3f' % (cmd, average_z)
+
         elif gcode and gcode == 'G28' and self.profile['safe_homing']:
             commands = []
             if 'Z' not in cmd.upper() and ('X' in cmd.upper() or 'Y' in cmd.upper()):
