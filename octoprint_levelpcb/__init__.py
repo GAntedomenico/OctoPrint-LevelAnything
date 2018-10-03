@@ -173,12 +173,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         elif gcode and gcode == 'G91':
             self.position_absolute = False
         elif gcode and gcode in ('G0', 'G00', 'G1', 'G01'):
-            if len(self.profile['matrix']) == 0:
-                # we have no matrix, do nothing
-                return cmd
-
             # calculate z-offset at given position
             # first get X/Y/Z-coordinates from command
+            # this is always executed for coordinate tracking
             match_x = re.search('X([\-\d\.]+)', cmd, re.IGNORECASE)
             match_y = re.search('Y([\-\d\.]+)', cmd, re.IGNORECASE)
             match_z = re.search('Z([\-\d\.]+)', cmd, re.IGNORECASE)
@@ -198,6 +195,19 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 else: z = self.last_z + float(match_z.group(1))
             else:
                 z = self.last_z
+
+            # check if we need to calculate a z-offset
+            if len(self.profile['matrix']) == 0:
+                # store last X/Y/Z
+                self.last_x, self.last_y, self.last_z = x, y, z
+                # we have no matrix, do nothing
+                return cmd
+            elif self.profile['fade'] > 0 and z > self.profile['fade']:
+                # store last X/Y/Z
+                self.last_x, self.last_y, self.last_z = x, y, z
+                # we are above the fading height, do nothing
+                return cmd
+
             # calculate surrounding matrix points
             dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
             dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -245,29 +255,33 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         [ math.ceil(index_x),  math.ceil(index_y)  ]
                     ]            
 
+            # get nearby points and their distance from our wanted point
             points_nearby = []
-            total_distance = 0.0
             for i in index_nearby:
                 point = self.profile['matrix'][int(i[1]) * int(self.profile['count_x']) + int(i[0])]
                 distance = math.sqrt((x - point[0]) ** 2 + (y - point[1]) ** 2)
-                total_distance += distance
                 points_nearby.append(point + [distance])
 
+            # calculate an average z-offset by distance from all found points
             average_z = 0.0
-            for p in points_nearby:
-                factor = 1.0
-                if total_distance == 0:
-                    # point is exactly on a measured point, all 4 points are the same, use equal weighting
-                    factor = 1 / float(len(points_nearby))
-                else:
-                    # point is between a set of measured points, weight by distance, the closer the higher
-                    factor = 1 - (p[3] / total_distance)
-                average_z += p[2] * factor
+            total_distance = sum(p[3] for p in points_nearby)
+            exact_matches = [p for p in points_nearby if p[3] == 0]
+            if len(exact_matches) > 0:
+                # one distance is 0, which means point matches exactly, use that value
+                average_z = exact_matches[0][2]
+            else:
+                # no distance is 0, calculate percentage factor of distance, the closer the higher
+                total_factor = sum([total_distance / p[3] for p in points_nearby])
+                for p in points_nearby:
+                    factor = total_distance / p[3] / total_factor
+                    average_z += p[2] * factor
+
+            # apply fading height factor
+            if self.profile['fade'] > 0 and z > 0:
+                average_z *= 1 - z / self.profile['fade']
 
             # store last X/Y/Z
-            self.last_x = x
-            self.last_y = y
-            self.last_z = z
+            self.last_x, self.last_y, self.last_z = x, y, z
 
             # insert calculated z-offset
             if match_z:
