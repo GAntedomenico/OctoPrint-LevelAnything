@@ -87,13 +87,23 @@
         </div>
         <div id="levelpcb_tab_rewriting" class="tab-pane">
             <div class="control-group">
+                <label class="control-label">{{ _('Divide moves longer than') }}</label>
+                <div class="controls">
+                    <div class="input-append">
+                        <input type="number" class="input-mini" data-bind="textInput: profile.divide">
+                        <span class="add-on">mm</span>
+                    </div>
+                    <div class="help-block">{{ _('Any moves where the X/Y-distance is greater than this value are divided into smaller moves to allow z-adjustment along the path. Set to 0 to disable.') }}</div>
+                </div>
+            </div>
+            <div class="control-group">
                 <label class="control-label">{{ _('Fade Z-correction') }}</label>
                 <div class="controls">
                     <div class="input-append">
                         <input type="number" class="input-mini" data-bind="textInput: profile.fade">
                         <span class="add-on">mm</span>
                     </div>
-                    <div class="help-block">{{ _('If set to a positive value, Z-correction will get smaller and smaller until the specified height is reached, where any adjustments will be turned off completely.') }}</div>
+                    <div class="help-block">{{ _('Z-correction will get smaller and smaller until the specified height is reached, where any adjustments will be turned off completely. Set to 0 to disable.') }}</div>
                 </div>
             </div>
         </div>
