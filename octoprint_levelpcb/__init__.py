@@ -87,9 +87,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probe_start(self):
-        # home first if safe-homing is required
-        if self.profile['safe_homing']:
-            self.send_command('G28')
+        # home probe first
+        self.send_command('G28 Z')
 
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
@@ -97,6 +96,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
         # probe points and add to matrix
         matrix = []
+        derivation = None
         for y in range(0, self.profile['count_y']):
             for x in range(0, self.profile['count_x']):
                 # abort if status changed while executing the last loop (error occured or user clicked cancel)
@@ -122,7 +122,12 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 ])
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
-                    cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'], 0.5))
+                    cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
+                        point[0] + self.profile['offset_x'] + 25,
+                        point[1] + self.profile['offset_y'] + 27,
+                        0.5
+                    )
+                    )
                 response = self.send_command(
                     cmd, 'Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)'
                 )
@@ -135,6 +140,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 act_y = float(response.group(2)) - self.profile['offset_y']
                 act_z = float(response.group(3))
 
+                # marlin ignores shifted coordinates (G92) for G30, adapt coordinate space dynamically
+                if derivation is None:
+                    derivation = [act_x - point[0], act_y - point[1]]
+                act_x, act_y = act_x - derivation[0], act_y - derivation[1]
                 # compare the points we want to the actual position reported by the printer
                 if not self.coords_equal(act_x, point[0], 0.1) or not self.coords_equal(act_y, point[1], 0.1):
                     self.set_status('ERROR',
