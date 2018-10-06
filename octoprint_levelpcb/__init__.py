@@ -20,7 +20,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     profile = dict()
     profiles = dict()
     position_absolute = True
-    last = [0.0, 0.0, 0.0, 0.0]
+    current = [0.0, 0.0, 0.0, 0.0]
     regex = [
         re.compile('X([\-\d\.]+)', re.IGNORECASE),
         re.compile('Y([\-\d\.]+)', re.IGNORECASE),
@@ -123,7 +123,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 act_z = float(response.group(3))
 
                 # compare the points we want to the actual position reported by the printer
-                if not self.coords_equal(act_x, point[0]) or not self.coords_equal(act_y, point[1]):
+                if not self.coords_equal(act_x, point[0], 0.1) or not self.coords_equal(act_y, point[1], 0.1):
                     self.set_status('ERROR',
                         'Probing failed: Coordinates mismatch, expected %.3f, %.3f, got %.3f, %.3f' %
                         (point[0], point[1], act_x, act_y)
@@ -171,109 +171,119 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         return line
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        # remove comment from command if any
+        if not gcode:
+            # we don't have a G-Code here, do nothing
+            return cmd
+
+        # remove comment from command for processing
         index = cmd.find(';')
         if index != -1:
             cmd = cmd[:index]
+
         # evaluate and change commands
-        if gcode and gcode == 'G90':
+        if gcode == 'G90':
             self.position_absolute = True
-        elif gcode and gcode == 'G91':
+
+        elif gcode == 'G91':
             self.position_absolute = False
-        elif gcode and gcode in ('G0', 'G00', 'G1', 'G01'):
+
+        elif gcode in ('G0', 'G00', 'G1', 'G01'):
             # calculate z-offset at given position
             # first get X/Y/Z-coordinates from command
             # this is always executed for coordinate tracking
             match = [r.search(cmd) for r in self.regex]
-            current = [0.0 for i in range(4)]
-            for i in range(len(current)):
+            target = []
+            for i in range(len(self.current)):
                 if match[i]:
-                    if self.position_absolute: current[i] = float(match[i].group(1))
-                    else: current[i] = self.last[i] + float(match[i].group(1))
+                    if self.position_absolute:
+                        # absolute positioning, target position can be used directly
+                        target.append(float(match[i].group(1)))
+                    else:
+                        # relative positioning, target position is relative to old position
+                        target.append(self.current[i] + float(match[i].group(1)))
+                else:
+                    # if we don't have a new coordinate, the carriage stays at last coordinate
+                    target.append(self.current[i])
 
             # check if we need to calculate a z-offset
-            if len(self.profile['matrix']) == 0:
-                # store last X/Y/Z
-                self.last = current[:]
-                # we have no matrix, do nothing
+            if (len(self.profile['matrix']) == 0 or not self.position_absolute or
+                (self.profile['fade'] > 0 and target[2] > self.profile['fade'])):
+                # store move target as current X/Y/Z
+                self.current = target[:]
+                # we have no matrix, a relative movement or are above fading height, do nothing
                 return cmd
-            elif self.profile['fade'] > 0 and current[2] > self.profile['fade']:
-                # store last X/Y/Z
-                self.last = current[:]
-                # we are above the fading height, do nothing
-                return cmd
-
-            if not match[2]:
-                cmd = '%s Z%.3f' % (cmd, self.last[2])
 
             # calculate move length, subdivide if necessary
             result = []
-            move_length = math.sqrt((self.last[0] - current[0]) ** 2 + (self.last[1] - current[1]) ** 2)
+            move_length = math.sqrt((self.current[0] - target[0]) ** 2 + (self.current[1] - target[1]) ** 2)
             # self._logger.info('Move length: %.3f' % move_length)
             if self.profile['divide'] > 0 and move_length > self.profile['divide']:
                 # move is longer than subdivision setting, split into smaller moves
                 factor = math.ceil(move_length / self.profile['divide'])
-                # calculate move lengths of segments per axis
-                lengths = [(current[i] - self.last[i]) / factor for i in range(len(current))]
+                # calculate move lengths of segments per axis based on current position
+                lengths = [(target[i] - self.current[i]) / factor for i in range(len(target))]
                 for n in range(1, int(factor) + 1):
-                    if self.position_absolute:
-                        move_point = [self.last[i] + lengths[i] * n for i in range(len(current))]
-                    else:
-                        move_point = [lengths[i] * n for i in range(len(current))]
+                    move_point = [self.current[i] + lengths[i] * n for i in range(len(target))]
                     move_point[2] += self.get_z_offset(move_point[0], move_point[1], move_point[2])
-                    result.append(self.sub_all(
-                        self.regex,
-                        [self.output[i] % move_point[i] for i in range(len(move_point))],
-                        cmd
-                    ))
+                    result.append(self.sub_coordinates(cmd, target, move_point))
             else:
-                offset = self.get_z_offset(current[0], current[1], current[2])
-                if self.position_absolute:
-                    # self._logger.info([current, offset])
-                    result.append(self.regex[2].sub(self.output[2] % (current[0] + offset), cmd))
-                else:
-                    result.append(self.regex[2].sub(self.output[2] % offset, cmd))
+                # modify with Z-offset
+                move_point = target[:]
+                move_point[2] += self.get_z_offset(move_point[0], move_point[1], move_point[2])
+                result.append(self.sub_coordinates(cmd, target, move_point))
 
-            # store last X/Y/Z and return command(s)
-            self.last = current[:]
-            # self._logger.info('New position: %s', repr(self.last))
+            # store target as current X/Y/Z
+            self.current = target[:]
+
+            # self._logger.info('New position: %s', repr(self.current))
             return result
 
-        elif gcode and gcode == 'G28' and self.profile['safe_homing']:
+        elif gcode == 'G28':
             commands = []
-            if 'Z' not in cmd.upper() and ('X' in cmd.upper() or 'Y' in cmd.upper()):
-                # command homes X or Y but not Z, do nothing
-                return cmd
-            commands.append('G28 X Y')
-            # set z-offset
+            # always set Z-offset when homing
             commands.append('M851 Z%.3f' % self.profile['offset_z'])
-            # lift carriage if setting is positive, respecting current positioning mode
-            if self.profile['lift'] > 0:
+            if self.profile['safe_homing']:
+                if 'Z' not in cmd.upper() and ('X' in cmd.upper() or 'Y' in cmd.upper()):
+                    # command homes X or Y but not Z, do not modify
+                    commands.append(cmd)
+                    return commands
+                # safe homing requires X and Y to be homed first
+                commands.append('G28 X Y')
+                # lift carriage if setting is positive
+                if self.profile['lift'] > 0:
+                    commands.extend([
+                        'G91', # relative coordinates
+                        'G0 Z%.3f F%.3f' % (self.profile['lift'], self.profile['lift_feed'])
+                    ])
+                # prepend movement command to Z-homing command
                 commands.extend([
-                    'G91',
-                    'G0 Z%.3f F%.3f' % (self.profile['lift'], self.profile['lift_feed'])
+                    'G90', # absolute coordinates
+                    'G0 X%.3f Y%.3f F%.3f' % ( # move
+                        self.profile['home_x'] + self.profile['offset_x'],
+                        self.profile['home_y'] + self.profile['offset_y'],
+                        self.profile['home_feed']
+                    ),
+                    'G28 Z' # home Z
                 ])
-            # prepend movement command to homing command
-            commands.extend([
-                'G90',
-                'G0 X%.3f Y%.3f F%.3f' % (
-                    self.profile['home_x'] + self.profile['offset_x'],
-                    self.profile['home_y'] + self.profile['offset_y'],
-                    self.profile['home_feed']
-                ),
-                'G28 Z'
-            ])
-            if not self.position_absolute:
-                commands.append('G91')
-            # we don't know where the printer moves to, clear last coordinates
-            self.last[0] = self.last[1] = self.last[2] = 0.0
+                if not self.position_absolute:
+                    # reset to relative positioning if it was set before
+                    commands.append('G91')
+                return commands
+            else:
+                commands.append(cmd)
+                return commands
+
+        elif gcode == 'G30' and self.profile['lift'] > 0:
+            # printer should move to specific position and do a Z-probe there, apply Z-lift if enabled
+            commands = ['G91', 'G0 Z%.3f' % self.profile['lift']]
+            if self.position_absolute:
+                # reset positioning mode to previous value
+                commands.append('G90')
+            # append the original G30-command
+            commands.append(cmd)
             return commands
-        elif gcode and gcode == 'G30' and self.profile['lift'] > 0:
-            return ['G91', 'G0 Z%.3f' % self.profile['lift'], 'G90', cmd]
 
     def get_z_offset(self, x, y, z):
-        if not self.position_absolute:
-            x, y, z = x + self.last[0], y + self.last[1], z + self.last[2]
         # calculate surrounding matrix points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
         dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -348,6 +358,21 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
         return average_z
 
+    # substitute coordinates in command with given values
+    def sub_coordinates(self, command, original_target, coordinates):
+        for i in range(len(self.regex)):
+            if original_target[i] == coordinates[i]:
+                # don't substitute already correct values
+                continue
+            match = self.regex[i].search(command)
+            if match:
+                # coordinate match found, replace with new one
+                command = command[:match.start()] + (self.output[i] % coordinates[i]) + command[match.end():]
+            elif self.current[i] != coordinates[i]:
+                # append coordinate, but only if it's a new value
+                command = command + ' ' + (self.output[i] % coordinates[i])
+        return command
+
     # set the status variable and send change to front-end
     def set_status(self, status, text):
         self.status = status
@@ -364,14 +389,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         self._plugin_manager.send_plugin_message(self._identifier, dict(profile = profile))
     
     # compares two coordinates for equality with 0.1mm tolerance
-    def coords_equal(self, float1, float2):
-        return abs(float1 - float2) < 0.1
-
-    def sub_all(self, search_res, replace_strs, input_str):
-        result = input_str
-        for i in range(len(search_res)):
-            result = search_res[i].sub(replace_strs[i], result)
-        return result
+    def coords_equal(self, float1, float2, tolerance):
+        return abs(float1 - float2) < tolerance
 
     def get_assets(self):
         return dict(
@@ -395,7 +414,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 type='github_release',
                 user='TazerReloaded',
                 repo='OctoPrint-LevelPCB',
-                current=self._plugin_version,
+                target=self._plugin_version,
 
                 # update method: pip
                 pip='https://github.com/TazerReloaded/OctoPrint-LevelPCB/archive/{target_version}.zip'
