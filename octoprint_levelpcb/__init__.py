@@ -102,19 +102,24 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # abort if status changed while executing the last loop (error occured or user clicked cancel)
                 if self.status != 'PROBING':
                     return
+                cmd = []
+                # lift carriage if enabled
+                if self.profile['lift'] > 0:
+                    cmd.extend(['G91', 'G0 Z%.3f' % self.profile['lift']])
                 point = [self.profile['min_x'] + dist_x * x, self.profile['min_y'] + dist_y * y, 0.0]
                 self.set_status('PROBING', 'Probing point %d of %d...' % (
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
-                # send G30 to execute Z probe at position
-                cmd = [
+                # send movement command and G30 to execute Z probe at position
+                cmd.extend([
+                    'G90',
                     'G0 X%.3f Y%.3f F%.3f' % (
                         point[0] + self.profile['offset_x'],
                         point[1] + self.profile['offset_y'],
                         self.profile['home_feed']
                     ),
                     'G30'
-                ]
+                ])
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
                     cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'], 0.5))
