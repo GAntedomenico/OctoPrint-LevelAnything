@@ -87,8 +87,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probe_start(self):
-        # home first
-        self.send_command('G28')
+        # home first if safe-homing is required
+        if self.profile['safe_homing']:
+            self.send_command('G28')
 
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
