@@ -107,7 +107,14 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
                 # send G30 to execute Z probe at position
-                cmd = ['G30 X%.3f Y%.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'])]
+                cmd = [
+                    'G0 X%.3f Y%.3f F%.3f' % (
+                        point[0] + self.profile['offset_x'],
+                        point[1] + self.profile['offset_y'],
+                        self.profile['home_feed']
+                    ),
+                    'G30'
+                ]
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
                     cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (point[0] + self.profile['offset_x'], point[1] + self.profile['offset_y'], 0.5))
@@ -273,16 +280,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             else:
                 commands.append(cmd)
                 return commands
-
-        elif gcode == 'G30' and self.profile['lift'] > 0:
-            # printer should move to specific position and do a Z-probe there, apply Z-lift if enabled
-            commands = ['G91', 'G0 Z%.3f' % self.profile['lift']]
-            if self.position_absolute:
-                # reset positioning mode to previous value
-                commands.append('G90')
-            # append the original G30-command
-            commands.append(cmd)
-            return commands
 
     def get_z_offset(self, x, y, z):
         # calculate surrounding matrix points
