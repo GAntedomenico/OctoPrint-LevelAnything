@@ -28,6 +28,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         re.compile('E([\-\d\.]+)', re.IGNORECASE)
     ]
     output = ['X%.3f', 'Y%.3f', 'Z%.3f', 'E%.3f']
+    regex_pos = re.compile('(?:ok )?X:([\-\d\.]+) Y:([\-\d\.]+) Z:([\-\d\.]+) E:([\-\d\.]+)')
 
     def on_after_startup(self):
         # load saved profiles from settings for fast access
@@ -190,6 +191,14 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             if self.command_match:
                 self.command_regex = None
                 self.command_event.set()
+        pos_match = self.regex_pos.match(line)
+        if pos_match: # printer reports position, save as current
+            self.current = [
+                float(pos_match.group(1)),
+                float(pos_match.group(2)),
+                float(pos_match.group(3)),
+                float(pos_match.group(4))
+            ]
         return line
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
