@@ -29,6 +29,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     ]
     output = ['X%.3f', 'Y%.3f', 'Z%.3f', 'E%.3f']
     regex_pos = re.compile('(?:ok )?X:([\-\d\.]+) Y:([\-\d\.]+) Z:([\-\d\.]+) E:([\-\d\.]+)')
+    regex_probe = re.compile('Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)')
 
     def on_after_startup(self):
         # load saved profiles from settings for fast access
@@ -76,7 +77,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         if command == 'probe_start':
             self.profiles = json.loads(self._settings.get(['profiles']))
             self.profile = self.profiles[self._settings.get(['selected_profile'])]
-            self.set_status('PROBING', 'Probing finished, matrix saved')
+            self.set_status('PROBING', 'Probing started')
             probe_thread = Thread(target = self.probe_start)
             probe_thread.start()
         elif command == 'probe_cancel':
@@ -88,9 +89,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probe_start(self):
-        # home probe first
-        self.send_command('G28 Z')
-
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
         dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -103,11 +101,30 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # abort if status changed while executing the last loop (error occured or user clicked cancel)
                 if self.status != 'PROBING':
                     return
+                
                 cmd = []
                 # lift carriage if enabled
                 if self.profile['lift'] > 0:
                     cmd.extend(['G91', 'G0 Z%.3f' % self.profile['lift']])
+
+                # get the coordinates we want to probe
                 point = [self.profile['min_x'] + dist_x * x, self.profile['min_y'] + dist_y * y, 0.0]
+                if x == 0 and y == 0:
+                    # home at first point and set offset of 0.0
+                    cmd.extend([
+                        'G90',
+                        'G0 X%.3f Y%.3f F%.3f' % (
+                            point[0] + self.profile['offset_x'],
+                            point[1] + self.profile['offset_y'],
+                            self.profile['home_feed']
+                        ),
+                        'G28 Z'
+                    ])
+                    self.send_command(cmd, self.regex_pos)
+                    self.send_point(point)
+                    matrix.append(point)
+                    continue
+                
                 self.set_status('PROBING', 'Probing point %d of %d...' % (
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
@@ -127,11 +144,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         point[0] + self.profile['offset_x'] + 25,
                         point[1] + self.profile['offset_y'] + 27,
                         0.5
-                    )
-                    )
-                response = self.send_command(
-                    cmd, 'Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)'
-                )
+                    ))
+                response = self.send_command(cmd, self.regex_probe)
                 if not response:
                     self.set_status('ERROR', 'Probing at location %.3f, %.3f timed out' % (point[0], point[1]))
                     return
@@ -172,8 +186,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     # sends a command to the printer and waits for the specified response
     command_event = command_regex = command_match = None
-    def send_command(self, command, responseRegex = ''):
-        if responseRegex is '':
+    def send_command(self, command, responseRegex = None):
+        if responseRegex is None:
             self._printer.commands(command)
             return None
         self.command_event = Event()
@@ -187,19 +201,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     
     def on_gcode_received(self, comm, line, *args, **kwargs):
         if self.command_regex:
-            self.command_match = re.search(self.command_regex, line)
+            self.command_match = self.command_regex.search(line)
             if self.command_match:
                 self.command_regex = None
                 self.command_event.set()
-        pos_match = self.regex_pos.match(line)
-        if pos_match: # printer reports position, save as current
-            self.current = [
-                float(pos_match.group(1)),
-                float(pos_match.group(2)),
-                float(pos_match.group(3)),
-                float(pos_match.group(4))
-            ]
-        return line
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if not gcode:
@@ -299,8 +304,20 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 if not self.position_absolute:
                     # reset to relative positioning if it was set before
                     commands.append('G91')
-                return commands
+                # send command and wait for position report here
+                response = self.send_command(commands, self.regex_pos)
+                if response:
+                    # printer reports position, save as current
+                    self.current = [
+                        float(response.group(1)),
+                        float(response.group(2)),
+                        float(response.group(3)),
+                        float(response.group(4))
+                    ]
+                # return empty command, eveything done by now
+                return []
             else:
+                # no safe-homing required, just M851 and the original command
                 commands.append(cmd)
                 return commands
 
@@ -364,7 +381,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         total_distance = sum(p[3] for p in points_nearby)
         exact_matches = [p for p in points_nearby if p[3] == 0]
         if len(exact_matches) > 0:
-            # one distance is 0, which means point matches exactly, use that value
+            # one distance is 0, which means point matches exactly, use its value directly
+            # and avoid division by zero in the else part
             average_z = exact_matches[0][2]
         else:
             # no distance is 0, calculate percentage factor of distance, the closer the higher
@@ -390,7 +408,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # coordinate match found, replace with new one
                 command = command[:match.start()] + (self.output[i] % coordinates[i]) + command[match.end():]
             elif self.current[i] != coordinates[i]:
-                # append coordinate, but only if it's a new value
+                # append coordinate, but only if it's a different value than the current one
                 command = command + ' ' + (self.output[i] % coordinates[i])
         return command
 
@@ -409,8 +427,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     def send_profile(self, profile):
         self._plugin_manager.send_plugin_message(self._identifier, dict(profile = profile))
     
-    # compares two coordinates for equality with 0.1mm tolerance
-    def coords_equal(self, float1, float2, tolerance):
+    # compares two coordinates for equality with the given tolerance
+    def coords_equal(self, float1, float2, tolerance = 0.1):
         return abs(float1 - float2) < tolerance
 
     def get_assets(self):
@@ -421,24 +439,24 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def get_template_configs(self):
         return [
-            dict(type = 'navbar', custom_bindings=False),
-            dict(type = 'settings', custom_bindings=False)
+            dict(type = 'navbar', custom_bindings = False),
+            dict(type = 'settings', custom_bindings = False)
         ]
 
     def get_update_information(self):
         return dict(
-            levelpcb=dict(
-                displayName='LevelPCB',
-                displayVersion=self._plugin_version,
+            levelpcb = dict(
+                displayName = 'LevelPCB',
+                displayVersion = self._plugin_version,
 
                 # version check: github repository
-                type='github_release',
-                user='TazerReloaded',
-                repo='OctoPrint-LevelPCB',
-                target=self._plugin_version,
+                type = 'github_release',
+                user = 'TazerReloaded',
+                repo = 'OctoPrint-LevelPCB',
+                target = self._plugin_version,
 
                 # update method: pip
-                pip='https://github.com/TazerReloaded/OctoPrint-LevelPCB/archive/{target_version}.zip'
+                pip = 'https://github.com/TazerReloaded/OctoPrint-LevelPCB/archive/{target_version}.zip'
             )
         )
 
