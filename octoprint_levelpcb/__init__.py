@@ -194,18 +194,18 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         self.command_regex = responseRegex
         self._printer.commands(command)
         result = self.command_event.wait(self._settings.get(['response_timeout']))
-        if result is not None:
+        if result:
             return self.command_match
         else:
             return None
     
     def on_gcode_received(self, comm, line, *args, **kwargs):
-        # if self.command_regex is not None:
-        #     self.command_match = self.command_regex.search(line)
-        #     if self.command_match:
-        #         self.command_regex = None
-        #         self.command_event.set()
-        pass
+        if self.command_regex:
+            self.command_match = self.command_regex.search(line)
+            if self.command_match:
+                self.command_regex = None
+                self.command_event.set()
+        return line
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if not gcode:
@@ -214,8 +214,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
         # remove comment from command for processing
         index = cmd.find(';')
+        comment = None
         if index != -1:
             cmd = cmd[:index]
+            comment = cmd[index:]
 
         # evaluate and change commands
         if gcode == 'G90':
@@ -248,10 +250,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # store move target as current X/Y/Z
                 self.current = target[:]
                 # we have no matrix, a relative movement or are above fading height, do nothing
-                return cmd
+                return
 
             # calculate move length, subdivide if necessary
-            result = []
+            commands = []
             move_length = math.sqrt((self.current[0] - target[0]) ** 2 + (self.current[1] - target[1]) ** 2)
             # self._logger.info('Move length: %.3f' % move_length)
             if self.profile['divide'] > 0 and move_length > self.profile['divide']:
@@ -262,18 +264,17 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 for n in range(1, int(factor) + 1):
                     move_point = [self.current[i] + lengths[i] * n for i in range(len(target))]
                     move_point[2] += self.get_z_offset(move_point[0], move_point[1], move_point[2])
-                    result.append(self.sub_coordinates(cmd, target, move_point))
+                    commands.append(self.sub_coordinates(cmd, target, move_point))
             else:
                 # modify with Z-offset
                 move_point = target[:]
                 move_point[2] += self.get_z_offset(move_point[0], move_point[1], move_point[2])
-                result.append(self.sub_coordinates(cmd, target, move_point))
+                commands.append(self.sub_coordinates(cmd, target, move_point))
 
             # store target as current X/Y/Z
             self.current = target[:]
-
-            # self._logger.info('New position: %s', repr(self.current))
-            return result
+            # return (divided) move
+            return commands
 
         elif gcode == 'G28':
             commands = []
@@ -282,7 +283,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             if self.profile['safe_homing']:
                 if 'Z' not in cmd.upper() and ('X' in cmd.upper() or 'Y' in cmd.upper()):
                     # command homes X or Y but not Z, do not modify
-                    commands.append(cmd)
+                    commands.append(cmd + comment)
                     return commands
                 # safe homing requires X and Y to be homed first
                 commands.append('G28 X Y')
@@ -308,7 +309,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
                 # send command and wait for position report here
                 response = self.send_command(commands, self.regex_pos)
-                if response is not None:
+                if response:
                     # printer reports position, save as current
                     self.current = [
                         float(response.group(1)),
@@ -316,11 +317,11 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         float(response.group(3)),
                         float(response.group(4))
                     ]
-
-                return []
+                # suppress original command
+                return (None)
             else:
                 # no safe-homing required, just M851 and the original command
-                commands.append(cmd)
+                commands.append(cmd + comment)
                 return commands
 
     def get_z_offset(self, x, y, z):
@@ -406,7 +407,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # don't substitute already correct values
                 continue
             match = self.regex[i].search(command)
-            if match is not None:
+            if match:
                 # coordinate match found, replace with new one
                 command = command[:match.start()] + (self.output[i] % coordinates[i]) + command[match.end():]
             elif self.current[i] != coordinates[i]:
