@@ -212,6 +212,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             # we don't have a G-Code here, do nothing
             return cmd
 
+        if "plugin:levelpcb" in tags:
+                # prevent processing own commands
+                return
+
         # remove comment from command for processing
         index = cmd.find(';')
         comment = ''
@@ -301,7 +305,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         self.profile['home_y'] + self.profile['offset_y'],
                         self.profile['home_feed']
                     ),
-                    'G28 Z' # home Z
+                    ('G28 Z', None, {'levelpcb'}) # home Z
                 ])
                 if not self.position_absolute:
                     # reset to relative positioning if it was set before
