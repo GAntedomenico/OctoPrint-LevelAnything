@@ -306,17 +306,17 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     commands.append('G91')
 
                 # send command and wait for position report here
-                # response = self.send_command(commands, self.regex_pos)
-                # if response:
-                #     # printer reports position, save as current
-                #     self.current = [
-                #         float(response.group(1)),
-                #         float(response.group(2)),
-                #         float(response.group(3)),
-                #         float(response.group(4))
-                #     ]
+                response = self.send_command(commands, self.regex_pos)
+                if response:
+                    # printer reports position, save as current
+                    self.current = [
+                        float(response.group(1)),
+                        float(response.group(2)),
+                        float(response.group(3)),
+                        float(response.group(4))
+                    ]
 
-                return commands
+                return []
             else:
                 # no safe-homing required, just M851 and the original command
                 commands.append(cmd)
