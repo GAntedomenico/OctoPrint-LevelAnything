@@ -311,19 +311,11 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     # reset to relative positioning if it was set before
                     commands.append('G91')
 
-                # send command and wait for position report here
-                response = self.send_command(commands, self.regex_pos)
-                if response:
-                    # printer reports position, save as current
-                    self.current = [
-                        float(response.group(1)),
-                        float(response.group(2)),
-                        float(response.group(3)),
-                        float(response.group(4))
-                    ]
+                # delete current position
+                current[0], current[1], current[2] = 0.0, 0.0, 0.0
 
-                # suppress original command
-                return (None, None)
+                # return new homing sequence
+                return commands
             else:
                 # no safe-homing required, just M851 and the original command
                 commands.append(cmd + comment)
