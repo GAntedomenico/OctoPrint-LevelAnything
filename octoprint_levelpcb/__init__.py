@@ -30,6 +30,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     output = ['X%.3f', 'Y%.3f', 'Z%.3f', 'E%.3f']
     regex_pos = re.compile('(?:ok )?X:([\-\d\.]+) Y:([\-\d\.]+) Z:([\-\d\.]+) E:([\-\d\.]+)')
     regex_probe = re.compile('Bed X: ([0-9\.\-]+) Y: ([0-9\.\-]+) Z: ([0-9\.\-]+)')
+    command_event = command_regex = command_match = None
 
     def on_after_startup(self):
         # load saved profiles from settings for fast access
@@ -185,7 +186,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         self.set_status('IDLE', 'Probing finished')
 
     # sends a command to the printer and waits for the specified response
-    command_event = command_regex = command_match = None
     def send_command(self, command, responseRegex = None):
         if responseRegex is None:
             self._printer.commands(command)
@@ -194,13 +194,13 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         self.command_regex = responseRegex
         self._printer.commands(command)
         result = self.command_event.wait(self._settings.get(['response_timeout']))
-        if result:
+        if result is not None:
             return self.command_match
         else:
             return None
     
     def on_gcode_received(self, comm, line, *args, **kwargs):
-        if self.command_regex:
+        if self.command_regex is not None:
             self.command_match = self.command_regex.search(line)
             if self.command_match:
                 self.command_regex = None
@@ -307,7 +307,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
                 # send command and wait for position report here
                 response = self.send_command(commands, self.regex_pos)
-                if response:
+                if response is not None:
                     # printer reports position, save as current
                     self.current = [
                         float(response.group(1)),
@@ -405,7 +405,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 # don't substitute already correct values
                 continue
             match = self.regex[i].search(command)
-            if match:
+            if match is not None:
                 # coordinate match found, replace with new one
                 command = command[:match.start()] + (self.output[i] % coordinates[i]) + command[match.end():]
             elif self.current[i] != coordinates[i]:
