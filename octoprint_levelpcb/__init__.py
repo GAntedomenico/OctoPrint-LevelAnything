@@ -207,14 +207,14 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 self.command_event.set()
         return line
 
-    def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, subcode=None, tags=None, *args, **kwargs):
         if not gcode:
             # we don't have a G-Code here, do nothing
             return cmd
 
-        if "plugin:levelpcb" in tags:
-                # prevent processing own commands
-                return
+        if tags and "plugin:levelpcb" in tags:
+            # prevent processing own commands
+            return
 
         # remove comment from command for processing
         index = cmd.find(';')
