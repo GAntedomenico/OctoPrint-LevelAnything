@@ -159,7 +159,8 @@
     </div>
 </form>
 
-<button class="btn btn-primary" data-bind="click: probeStartClick, disable: isProbing">{{ _('Save & Start') }}</button>
+<button class="btn btn-primary" data-bind="click: saveClick, disable: isProbing">{{ _('Save') }}</button>
+<button class="btn" data-bind="click: probeStartClick, disable: isProbing">{{ _('Start') }}</button>
 <button class="btn" data-bind="click: probeCancelClick, enable: isProbing">{{ _('Cancel') }}</button>
 <span data-bind="text: statusText">{{ _('Ready') }}</span>
 

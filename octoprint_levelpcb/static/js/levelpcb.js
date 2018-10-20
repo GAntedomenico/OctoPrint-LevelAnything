@@ -20,6 +20,18 @@ $(function() {
         CTX.fillStyle = '#000';
 
         // front-end functions
+        self.saveClick = function() {
+            self.isProbing(true);
+            var selectedProfile = self.profiles[self.selectedProfileName()];
+            for (key in selectedProfile) if (selectedProfile.hasOwnProperty(key)) {
+                if (typeof selectedProfile[key] == 'number') selectedProfile[key] = parseFloat(self.profile[key]());
+                else selectedProfile[key] = self.profile[key]();
+            }
+            var data = { plugins: { levelpcb: { profiles: JSON.stringify(self.profiles) } } };
+            SETTINGS_VIEW_MODEL.saveData(data, function() {
+                self.isProbing(false);
+            });
+        }
         self.probeStartClick = function() {
             self.profile.matrix([]);
             var selectedProfile = self.profiles[self.selectedProfileName()];

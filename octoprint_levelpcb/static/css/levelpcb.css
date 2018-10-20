@@ -12,3 +12,6 @@
 #tab_plugin_levelpcb select {
     margin-bottom: 0;
 }
+#tab_plugin_levelpcb canvas {
+    margin-top: 10px;
+}
