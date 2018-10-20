@@ -305,7 +305,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         self.profile['home_y'] + self.profile['offset_y'],
                         self.profile['home_feed']
                     ),
-                    ('G28 Z', None, {'levelpcb'}) # home Z
+                    'G28 Z' # home Z
                 ])
                 if not self.position_absolute:
                     # reset to relative positioning if it was set before
