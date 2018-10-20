@@ -322,7 +322,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         float(response.group(4))
                     ]
                 # suppress original command
-                return (None)
+                return None
             else:
                 # no safe-homing required, just M851 and the original command
                 commands.append(cmd + comment)
