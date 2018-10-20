@@ -200,11 +200,12 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             return None
     
     def on_gcode_received(self, comm, line, *args, **kwargs):
-        if self.command_regex is not None:
-            self.command_match = self.command_regex.search(line)
-            if self.command_match:
-                self.command_regex = None
-                self.command_event.set()
+        # if self.command_regex is not None:
+        #     self.command_match = self.command_regex.search(line)
+        #     if self.command_match:
+        #         self.command_regex = None
+        #         self.command_event.set()
+        pass
 
     def on_gcode_queuing(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if not gcode:
