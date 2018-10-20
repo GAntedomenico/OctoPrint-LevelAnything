@@ -312,7 +312,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     commands.append('G91')
 
                 # delete current position
-                current[0], current[1], current[2] = 0.0, 0.0, 0.0
+                self.current = [0.0, 0.0, 0.0, self.current[3]]
 
                 # return new homing sequence
                 return commands
