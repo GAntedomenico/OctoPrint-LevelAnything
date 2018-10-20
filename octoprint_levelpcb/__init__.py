@@ -19,9 +19,10 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     status = 'IDLE'
     profile = dict()
     profiles = dict()
+    position = [float('nan') for i in range(4)]
     position_absolute = True
-    current = [0.0, 0.0, 0.0, 0.0]
-    regex = [
+    extruder_absolute = True
+    regex_coords = [
         re.compile('X([\-\d\.]+)', re.IGNORECASE),
         re.compile('Y([\-\d\.]+)', re.IGNORECASE),
         re.compile('Z([\-\d\.]+)', re.IGNORECASE),
@@ -121,6 +122,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                         ),
                         'G28 Z'
                     ])
+                    if self._settings.get(['debug']):
+                        # fake G28 response on virtual printer
+                        cmd.append('!!DEBUG:send X:%.3f Y:%.3f Z:%.3f E:%.3f' % (5, 10, 1, 0))
                     self.send_command(cmd, self.regex_pos)
                     self.send_point(point)
                     matrix.append(point)
@@ -142,8 +146,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 if self._settings.get(['debug']):
                     # fake G30 response on virtual printer
                     cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
-                        point[0] + self.profile['offset_x'] + 25,
-                        point[1] + self.profile['offset_y'] + 27,
+                        point[0] + self.profile['offset_x'],
+                        point[1] + self.profile['offset_y'],
                         0.5
                     ))
                 response = self.send_command(cmd, self.regex_probe)
@@ -223,50 +227,50 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             cmd = cmd[:index]
             comment = cmd[index:]
 
-        # evaluate and change commands
-        if gcode == 'G90':
-            self.position_absolute = True
-
-        elif gcode == 'G91':
-            self.position_absolute = False
-
-        elif gcode in ('G0', 'G00', 'G1', 'G01'):
+        # linear move
+        if gcode in ('G0', 'G00', 'G1', 'G01'):
             # calculate z-offset at given position
             # first get X/Y/Z-coordinates from command
             # this is always executed for coordinate tracking
-            match = [r.search(cmd) for r in self.regex]
+            match = [r.search(cmd) for r in self.regex_coords]
             target = []
-            for i in range(len(self.current)):
+            for i in range(4):
                 if match[i]:
                     if self.position_absolute:
                         # absolute positioning, target position can be used directly
                         target.append(float(match[i].group(1)))
                     else:
                         # relative positioning, target position is relative to old position
-                        target.append(self.current[i] + float(match[i].group(1)))
+                        target.append(self.position[i] + float(match[i].group(1)))
                 else:
                     # if we don't have a new coordinate, the carriage stays at last coordinate
-                    target.append(self.current[i])
+                    target.append(self.position[i])
+            
+            if match[3] and self.position_absolute and not self.extruder_absolute:
+                # extruder uses relative coordinate override, correct here
+                target[3] = self.position[3] + float(match[3].group(1))
 
             # check if we need to calculate a z-offset
             if (len(self.profile['matrix']) == 0 or not self.position_absolute or
-                (self.profile['fade'] > 0 and target[2] > self.profile['fade'])):
+                (self.profile['fade'] > 0 and target[2] > self.profile['fade']) or
+                float('nan') in self.position):
                 # store move target as current X/Y/Z
-                self.current = target[:]
-                # we have no matrix, a relative movement or are above fading height, do nothing
+                self.position = target[:]
+                # we have no matrix, it's a relative movement, we are above fading height,
+                # or we don't know the last position; do nothing
                 return
 
             # calculate move length, subdivide if necessary
             commands = []
-            move_length = math.sqrt((self.current[0] - target[0]) ** 2 + (self.current[1] - target[1]) ** 2)
+            move_length = math.sqrt((self.position[0] - target[0]) ** 2 + (self.position[1] - target[1]) ** 2)
             # self._logger.info('Move length: %.3f' % move_length)
             if self.profile['divide'] > 0 and move_length > self.profile['divide']:
                 # move is longer than subdivision setting, split into smaller moves
                 factor = math.ceil(move_length / self.profile['divide'])
                 # calculate move lengths of segments per axis based on current position
-                lengths = [(target[i] - self.current[i]) / factor for i in range(len(target))]
+                lengths = [(target[i] - self.position[i]) / factor for i in range(len(target))]
                 for n in range(1, int(factor) + 1):
-                    move_point = [self.current[i] + lengths[i] * n for i in range(len(target))]
+                    move_point = [self.position[i] + lengths[i] * n for i in range(len(target))]
                     move_point[2] += self.get_z_offset(move_point[0], move_point[1], move_point[2])
                     commands.append(self.sub_coordinates(cmd, target, move_point))
             else:
@@ -276,11 +280,15 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                 commands.append(self.sub_coordinates(cmd, target, move_point))
 
             # store target as current X/Y/Z
-            self.current = target[:]
+            self.position = target[:]
             # return (divided) move
             return commands
 
+        # home
         elif gcode == 'G28':
+            # we don't know where the printer will move to, delete X/Y/Z
+            self.delete_position()
+
             commands = []
             # always set Z-offset when homing
             commands.append('M851 Z%.3f' % self.profile['offset_z'])
@@ -311,15 +319,59 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     # reset to relative positioning if it was set before
                     commands.append('G91')
 
-                # delete current position
-                self.current = [0.0, 0.0, 0.0, self.current[3]]
-
                 # return new homing sequence
                 return commands
             else:
                 # no safe-homing required, just M851 and the original command
                 commands.append(cmd + comment)
                 return commands
+
+        # auto level, use this plugin and suppress output to printer
+        elif gcode == 'G29':
+            self.on_api_command('probe_start', None)
+            return (None, None)
+
+        # move to matrix point
+        elif gcode == 'G42':
+            # this is not used often (if at all), performance is not a problem
+            # compile regex patterns here
+            matches = [
+                re.search('I([\d]+)', cmd, re.IGNORECASE),
+                re.search('J([\d]+)', cmd, re.IGNORECASE),
+                re.search('F([\d\.]+)', cmd, re.IGNORECASE)
+            ]
+            values = [float(match.group(1)) if match else None for match in matches]
+            if values[0] is not None and values[1] is not None:
+                index = int(values[1]) * int(self.profile['count_x']) + int(values[0])
+                if index >= 0 and index < len(self.profile['matrix']):
+                    return 'G0 X%.3f Y%.3f%s' % (
+                        self.profile['matrix'][index][0],
+                        self.profile['matrix'][index][1],
+                        ' F%.3f' % values[2] if values[2] else ''
+                    )
+            return (None, None)
+
+        # positioning mode: absolute
+        elif gcode == 'G90':
+            self.position_absolute = True
+
+        # positioning mode: relative
+        elif gcode == 'G91':
+            self.position_absolute = False
+        
+        # set X, Y, Z or E
+        elif gcode == 'G92':
+            match = [r.search(cmd) for r in self.regex_coords]
+            for i in range(4):
+                if match[i]:
+                    self.position[i] = float(match[i].group(1))
+
+        # extruder absolute
+        elif gcode == 'M82':
+            self.extruder_absolute = True
+
+        elif gcode == 'M83':
+            self.extruder_absolute = False
 
     def get_z_offset(self, x, y, z):
         # calculate surrounding matrix points
@@ -397,17 +449,20 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
         return average_z
 
+    def delete_position(self):
+        self.position = [float('nan') for i in range(4)]
+
     # substitute coordinates in command with given values
     def sub_coordinates(self, command, original_target, coordinates):
-        for i in range(len(self.regex)):
+        for i in range(4):
             if original_target[i] == coordinates[i]:
                 # don't substitute already correct values
                 continue
-            match = self.regex[i].search(command)
+            match = self.regex_coords[i].search(command)
             if match:
                 # coordinate match found, replace with new one
                 command = command[:match.start()] + (self.output[i] % coordinates[i]) + command[match.end():]
-            elif self.current[i] != coordinates[i]:
+            elif self.position[i] != coordinates[i]:
                 # append coordinate, but only if it's a different value than the current one
                 command = command + ' ' + (self.output[i] % coordinates[i])
         return command
