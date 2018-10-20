@@ -214,7 +214,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
         # remove comment from command for processing
         index = cmd.find(';')
-        comment = None
+        comment = ''
         if index != -1:
             cmd = cmd[:index]
             comment = cmd[index:]
