@@ -297,14 +297,14 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
                     # command homes X or Y but not Z, do not modify
                     commands.append(cmd + comment)
                     return commands
-                # safe homing requires X and Y to be homed first
-                commands.append('G28 X Y')
                 # lift carriage if setting is positive
                 if self.profile['lift'] > 0:
                     commands.extend([
                         'G91', # relative coordinates
                         'G0 Z%.3f F%.3f' % (self.profile['lift'], self.profile['lift_feed'])
                     ])
+                # safe homing requires X and Y to be homed first
+                commands.append('G28 X Y')
                 # prepend movement command to Z-homing command
                 commands.extend([
                     'G90', # absolute coordinates
