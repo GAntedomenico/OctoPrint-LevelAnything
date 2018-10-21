@@ -248,12 +248,17 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             
             if match[3] and self.position_absolute and not self.extruder_absolute:
                 # extruder uses relative coordinate override, correct here
-                target[3] = self.position[3] + float(match[3].group(1))
+                if math.isnan(self.position[3]):
+                    target[3] = float(match[3].group(1))
+                else:
+                    target[3] = self.position[3] + float(match[3].group(1))
 
             # check if we need to calculate a z-offset
             if (len(self.profile['matrix']) == 0 or not self.position_absolute or
                 (self.profile['fade'] > 0 and target[2] > self.profile['fade']) or
                 float('nan') in target):
+                if float('nan') in target:
+                    self._logger.info('Missing values for coordinate calculation: %s' % repr(target))
                 # store move target as current X/Y/Z
                 self.position = target[:]
                 # we have no matrix, it's a relative movement, we are above fading height,
