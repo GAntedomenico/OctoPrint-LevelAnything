@@ -238,9 +238,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             # check if we need to calculate a z-offset
             if (len(self.profile['matrix']) == 0 or not self.position_absolute or
                 (self.profile['fade'] > 0 and target[2] > self.profile['fade']) or
-                float('nan') in target):
-                if float('nan') in target:
-                    self._logger.info('Missing values for coordinate calculation: %s' % repr(target))
+                True in [math.isnan(t) for t in target]):
                 # store move target as current X/Y/Z
                 self.position = target[:]
                 # we have no matrix, it's a relative movement, we are above fading height,
