@@ -91,6 +91,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.info('Unknown command %s' % command)
 
     def probe_start(self):
+        if self.profile['safe_homing']:
+            self.send_command('G28') # home first to prevent probe missing the bed
+
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
         dist_y = (self.profile['max_y'] - self.profile['min_y']) / float(self.profile['count_y'] - 1)
@@ -215,10 +218,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         if not gcode:
             # we don't have a G-Code here, do nothing
             return cmd
-
-        if tags and "plugin:levelpcb" in tags:
-            # prevent processing own commands
-            return
 
         # remove comment from command for processing
         index = cmd.find(';')
