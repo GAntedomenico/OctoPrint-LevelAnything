@@ -19,7 +19,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
     status = 'IDLE'
     profile = dict()
     profiles = dict()
-    position = [float('nan') for i in range(4)]
+    position = [float('nan'), float('nan'), float('nan'), 0.0]
     position_absolute = True
     extruder_absolute = True
     regex_coords = [
@@ -435,7 +435,7 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
         return average_z
 
     def delete_position(self):
-        self.position = [float('nan') for i in range(4)]
+        self.position = [float('nan'), float('nan'), float('nan'), 0.0]
 
     # substitute coordinates in command with given values
     def sub_coordinates(self, command, original_target, coordinates):
