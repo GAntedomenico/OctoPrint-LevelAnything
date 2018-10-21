@@ -92,7 +92,9 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def probe_start(self):
         if self.profile['safe_homing']:
-            self.send_command('G28') # home first to prevent probe missing the bed
+            # home first to prevent probe missing the bed
+            # if safe homing is disabled, the user must home the carriage
+            self.send_command('G28')
 
         # calculate distance between probe points
         dist_x = (self.profile['max_x'] - self.profile['min_x']) / float(self.profile['count_x'] - 1)
@@ -114,25 +116,6 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
                 # get the coordinates we want to probe
                 point = [self.profile['min_x'] + dist_x * x, self.profile['min_y'] + dist_y * y, 0.0]
-                if x == 0 and y == 0:
-                    # home at first point and set offset of 0.0
-                    cmd.extend([
-                        'G90',
-                        'G0 X%.3f Y%.3f F%.3f' % (
-                            point[0] + self.profile['offset_x'],
-                            point[1] + self.profile['offset_y'],
-                            self.profile['home_feed']
-                        ),
-                        'G28 Z'
-                    ])
-                    if self._settings.get(['debug']):
-                        # fake G28 response on virtual printer
-                        cmd.append('!!DEBUG:send X:%.3f Y:%.3f Z:%.3f E:%.3f' % (5, 10, 1, 0))
-                    self.send_command(cmd, self.regex_pos)
-                    self.send_point(point)
-                    matrix.append(point)
-                    continue
-                
                 self.set_status('PROBING', 'Probing point %d of %d...' % (
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
