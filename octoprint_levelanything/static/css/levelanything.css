@@ -1,0 +1,17 @@
+#tab_plugin_levelanything .tab-content {
+    padding: 0;
+    border: none;
+}
+#tab_plugin_levelanything .separator {
+    padding-left: 5px;
+    padding-right: 5px;
+}
+#tab_plugin_levelanything .tab-pane {
+    padding-top: 10px;
+}
+#tab_plugin_levelanything select {
+    margin-bottom: 0;
+}
+#tab_plugin_levelanything canvas {
+    margin-top: 10px;
+}

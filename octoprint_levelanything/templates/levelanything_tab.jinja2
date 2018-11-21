@@ -7,13 +7,13 @@
 <legend>Configuration</legend>
 <form class="form-horizontal">
     <ul class="nav nav-pills">
-        <li class="active"><a href="#levelpcb_tab_area" data-toggle="tab">{{ _('Area') }}</a></li>
-        <li><a href="#levelpcb_tab_probing" data-toggle="tab">{{ _('Probing') }}</a></li>
-        <li><a href="#levelpcb_tab_rewriting" data-toggle="tab">{{ _('Rewriting') }}</a></li>
-        <li><a href="#levelpcb_tab_safety" data-toggle="tab">{{ _('Safety') }}</a></li>
+        <li class="active"><a href="#levelanything_tab_area" data-toggle="tab">{{ _('Area') }}</a></li>
+        <li><a href="#levelanything_tab_probing" data-toggle="tab">{{ _('Probing') }}</a></li>
+        <li><a href="#levelanything_tab_rewriting" data-toggle="tab">{{ _('Rewriting') }}</a></li>
+        <li><a href="#levelanything_tab_safety" data-toggle="tab">{{ _('Safety') }}</a></li>
     </ul>
     <div class="tab-content">
-        <div id="levelpcb_tab_area" class="tab-pane active">
+        <div id="levelanything_tab_area" class="tab-pane active">
             <div class="control-group">
                 <label class="control-label">{{ _('Probe X from') }}</label>
                 <div class="controls">
@@ -59,7 +59,7 @@
                 </div>
             </div>
         </div>
-        <div id="levelpcb_tab_probing" class="tab-pane">
+        <div id="levelanything_tab_probing" class="tab-pane">
             <div class="control-group">
                 <label class="control-label">{{ _('Probe offset X') }}</label>
                 <div class="controls">
@@ -85,7 +85,7 @@
                 </div>
             </div>
         </div>
-        <div id="levelpcb_tab_rewriting" class="tab-pane">
+        <div id="levelanything_tab_rewriting" class="tab-pane">
             <div class="control-group">
                 <label class="control-label">{{ _('Divide moves longer than') }}</label>
                 <div class="controls">
@@ -107,7 +107,7 @@
                 </div>
             </div>
         </div>
-        <div id="levelpcb_tab_safety" class="tab-pane">
+        <div id="levelanything_tab_safety" class="tab-pane">
             <div class="control-group">
                 <label class="control-label">{{ _('Lift probe by') }}</label>
                 <div class="controls">
@@ -167,7 +167,7 @@
 <canvas width="568" height="568"></canvas>
 </div>
 
-<div class="modal hide fade" role="dialog" id="levelpcb_modal_add">
+<div class="modal hide fade" role="dialog" id="levelanything_modal_add">
     <div class="modal-body">
         <legend>{{ _('Create new profile') }}</legend>
         <label class="control-label">{{ _('Profile name') }}</label>
@@ -181,7 +181,7 @@
     </div>
 </div>
 
-<div class="modal hide fade" role="dialog" id="levelpcb_modal_remove">
+<div class="modal hide fade" role="dialog" id="levelanything_modal_remove">
     <div class="modal-body" data-bind="html: gettext('Really remove profile <code>{name}</code>?').replace('{name}', selectedProfileName())"></div>
     <div class="modal-footer">
         <button class="btn" data-bind="click: function() { removeProfileModal.modal('hide'); }">{{ _('Cancel') }}</button>

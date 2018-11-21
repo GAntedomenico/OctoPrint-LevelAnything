@@ -1,10 +1,10 @@
 $(function() {
-    function LevelPCBViewModel(parameters) {
+    function LevelAnythingViewModel(parameters) {
         var self = this;
 
         // some globals (with type hint for vscode)
         /** @type {HTMLCANVASElement} */
-        var CANVAS = $('#tab_plugin_levelpcb CANVAS')[0];            
+        var CANVAS = $('#tab_plugin_levelanything CANVAS')[0];            
         var CTX = CANVAS.getContext('2d');
         var SIZE = CANVAS.width;
         var PADDING = 50;
@@ -27,7 +27,7 @@ $(function() {
                 if (typeof selectedProfile[key] == 'number') selectedProfile[key] = parseFloat(self.profile[key]());
                 else selectedProfile[key] = self.profile[key]();
             }
-            var data = { plugins: { levelpcb: { profiles: JSON.stringify(self.profiles) } } };
+            var data = { plugins: { levelanything: { profiles: JSON.stringify(self.profiles) } } };
             SETTINGS_VIEW_MODEL.saveData(data, function() {
                 self.isProbing(false);
             });
@@ -39,7 +39,7 @@ $(function() {
                 if (typeof selectedProfile[key] == 'number') selectedProfile[key] = parseFloat(self.profile[key]());
                 else selectedProfile[key] = self.profile[key]();
             }
-            var data = { plugins: { levelpcb: { profiles: JSON.stringify(self.profiles) } } };
+            var data = { plugins: { levelanything: { profiles: JSON.stringify(self.profiles) } } };
             SETTINGS_VIEW_MODEL.saveData(data, function() {
                 self.sendJSON({ command: 'probe_start' });
             });
@@ -58,7 +58,7 @@ $(function() {
                 // profile does not exist, create with values from disabled profile
                 var newProfile = JSON.parse(JSON.stringify(self.profiles[DISABLED]));
                 self.profiles[self.newProfileName()] = newProfile;
-                var data = { plugins: { levelpcb: { profiles: JSON.stringify(self.profiles) } } };
+                var data = { plugins: { levelanything: { profiles: JSON.stringify(self.profiles) } } };
                 SETTINGS_VIEW_MODEL.saveData(data, function() {
                     self.addProfileModal.modal('hide');
                     self.profileNames(Object.keys(self.profiles));
@@ -72,7 +72,7 @@ $(function() {
         }
         self.removeProfileOkClick = function() {
             delete self.profiles[self.selectedProfileName()];
-            var data = { plugins: { levelpcb: { profiles: JSON.stringify(self.profiles) } } };
+            var data = { plugins: { levelanything: { profiles: JSON.stringify(self.profiles) } } };
             SETTINGS_VIEW_MODEL.saveData(data, function() {
                 self.removeProfileModal.modal('hide');
                 self.selectedProfileName(DISABLED);
@@ -83,11 +83,11 @@ $(function() {
         // define everything needed for templates here
         self.onBeforeBinding = function() {
             // for shorter access
-            self.settings = SETTINGS_VIEW_MODEL.settings.plugins.levelpcb;
+            self.settings = SETTINGS_VIEW_MODEL.settings.plugins.levelanything;
 
             // load settings from config, unpacking the profiles object
-            self.addProfileModal = $('#levelpcb_modal_add');
-            self.removeProfileModal = $('#levelpcb_modal_remove');
+            self.addProfileModal = $('#levelanything_modal_add');
+            self.removeProfileModal = $('#levelanything_modal_remove');
             self.profiles = JSON.parse(self.settings.profiles());
 
             // populate template variables
@@ -122,7 +122,7 @@ $(function() {
                 }
 
                 // save currently selected profile to persist restarts
-                var data = { plugins: { levelpcb: { selected_profile: selected } } };
+                var data = { plugins: { levelanything: { selected_profile: selected } } };
                 SETTINGS_VIEW_MODEL.saveData(data, function() {
                     // notify back-end about profile change
                     self.sendJSON({command: 'profile_changed'});
@@ -131,7 +131,7 @@ $(function() {
         }
         // messages from python are processed here
         self.onDataUpdaterPluginMessage = function(plugin, message) {
-            if (plugin != 'levelpcb') return;
+            if (plugin != 'levelanything') return;
             else if (message.status) {
                 self.statusText(message.text);
                 self.isProbing(message.status == 'PROBING');
@@ -170,7 +170,7 @@ $(function() {
         // send a JSON command to python
         self.sendJSON = function(content) {
             $.ajax({
-                url: API_BASEURL + 'plugin/levelpcb',
+                url: API_BASEURL + 'plugin/levelanything',
                 type: 'POST',
                 dataType: 'json',
                 data: JSON.stringify(content),
@@ -179,8 +179,8 @@ $(function() {
         }
     }
     OCTOPRINT_VIEWMODELS.push([
-        LevelPCBViewModel,
+        LevelAnythingViewModel,
         ['settingsViewModel'],
-        ['#tab_plugin_levelpcb']
+        ['#tab_plugin_levelanything']
     ]);
 });

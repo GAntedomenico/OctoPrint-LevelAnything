@@ -9,7 +9,7 @@ import json
 import math
 import re
 
-class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
+class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                      octoprint.plugin.AssetPlugin,
                      octoprint.plugin.TemplatePlugin,
                      octoprint.plugin.SimpleApiPlugin,
@@ -473,8 +473,8 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def get_assets(self):
         return dict(
-            js = ['js/levelpcb.js'],
-            css = ['css/levelpcb.css']
+            js = ['js/levelanything.js'],
+            css = ['css/levelanything.css']
         )
 
     def get_template_configs(self):
@@ -485,26 +485,26 @@ class LevelPCBPlugin(octoprint.plugin.SettingsPlugin,
 
     def get_update_information(self):
         return dict(
-            levelpcb = dict(
-                displayName = 'LevelPCB',
+            levelanything = dict(
+                displayName = 'LevelAnything',
                 displayVersion = self._plugin_version,
 
                 # version check: github repository
                 type = 'github_release',
                 user = 'TazerReloaded',
-                repo = 'OctoPrint-LevelPCB',
+                repo = 'OctoPrint-LevelAnything',
                 target = self._plugin_version,
 
                 # update method: pip
-                pip = 'https://github.com/TazerReloaded/OctoPrint-LevelPCB/archive/{target_version}.zip'
+                pip = 'https://github.com/TazerReloaded/OctoPrint-LevelAnything/archive/{target_version}.zip'
             )
         )
 
-__plugin_name__ = 'LevelPCB'
+__plugin_name__ = 'LevelAnything'
 
 def __plugin_load__():
     global __plugin_implementation__
-    __plugin_implementation__ = LevelPCBPlugin()
+    __plugin_implementation__ = LevelAnythingPlugin()
 
     global __plugin_hooks__
     __plugin_hooks__ = {

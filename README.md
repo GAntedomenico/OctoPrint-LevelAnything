@@ -1,4 +1,4 @@
-# OctoPrint-LevelPCB
+# OctoPrint-LevelAnything
 
 Implements a mesh bed leveling system for OctoPrint, similar to ABL in Marlin, but a lot more flexible.
 Can be used on the print bed, for milling, laser engraving and any other application where the surface might be uneven.
@@ -8,7 +8,7 @@ Can be used on the print bed, for milling, laser engraving and any other applica
 Install via the bundled [Plugin Manager](http://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
 or manually using this URL:
 
-    https://github.com/TazerReloaded/OctoPrint-LevelPCB/archive/master.zip
+    https://github.com/TazerReloaded/OctoPrint-LevelAnything/archive/master.zip
 
 No special dependencies required, if OctoPrint runs fine, this plugin will too.
 
