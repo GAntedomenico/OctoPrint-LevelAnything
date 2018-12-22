@@ -63,7 +63,7 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                 home_feed = 3000
             ))),
             selected_profile = 'disabled',
-            response_timeout = 20.0,
+            response_timeout = 60.0,
             debug = False
         )
     
