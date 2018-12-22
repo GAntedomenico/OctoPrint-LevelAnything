@@ -64,7 +64,7 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
             ))),
             selected_profile = 'disabled',
             response_timeout = 20.0,
-            debug = True
+            debug = False
         )
     
     def get_api_commands(self):
