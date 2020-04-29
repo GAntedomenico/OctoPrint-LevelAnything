@@ -22,3 +22,9 @@ This plugin is still in active development, features may change, be added or rem
 **This plugin alters G-Code commands while they are sent to the printer. This could lead to errors in the printer's movement. I am not responsible for any damage caused by this plugin!**
 On a correctly configured firmware the chances of catastrophic failure should be minimal, but if anything goes wrong: You have been warned, always watch your printer when trying something new.
 This plugin could also slow down your OctoPrint instance, because it performs quite a few calculations in the background for every movement command below the fading height. The code is written with performance in mind, and I didn't have any issues so far even with very complex models (Raspberry Pi 3 Model B).
+
+## Some screenshots
+![Area configuration and preview](screenshots/screen1.png)
+![Offset configuration](screenshots/screen2.png)
+![Move rewrite configuration](screenshots/screen3.png)
+![Safety configuration](screenshots/screen4.png)
