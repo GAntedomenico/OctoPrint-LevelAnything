@@ -63,8 +63,7 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                 home_feed = 3000
             ))),
             selected_profile = 'disabled',
-            response_timeout = 60.0,
-            debug = False
+            response_timeout = 60.0
         )
     
     def get_api_commands(self):
@@ -115,7 +114,7 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                     cmd.extend(['G91', 'G0 Z%.3f' % self.profile['lift']])
 
                 # get the coordinates we want to probe
-                point = [self.profile['min_x'] + dist_x * x, self.profile['min_y'] + dist_y * y, 0.0]
+                point = [self.profile['min_x'] + (dist_x * x) - self.profile['offset_x'], self.profile['min_y'] + (dist_y * y) - self.profile['offset_y'], 0.0]
                 self.set_status('PROBING', 'Probing point %d of %d...' % (
                     y * self.profile['count_x'] + x + 1, self.profile['count_x'] * self.profile['count_y']
                 ))
@@ -123,27 +122,20 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                 cmd.extend([
                     'G90',
                     'G0 X%.3f Y%.3f F%.3f' % (
-                        point[0] + self.profile['offset_x'],
-                        point[1] + self.profile['offset_y'],
+                        point[0], # changed to subtract offset instead of add offset
+                        point[1], # this way the signs of our x/y offsets can match the signs of the values stored on EEPROM
                         self.profile['home_feed']
                     ),
                     'G30'
                 ])
-                if self._settings.get(['debug']):
-                    # fake G30 response on virtual printer
-                    cmd.append('!!DEBUG:send Bed X: %.3f Y: %.3f Z: %.3f' % (
-                        point[0] + self.profile['offset_x'],
-                        point[1] + self.profile['offset_y'],
-                        0.5
-                    ))
                 response = self.send_command(cmd, self.regex_probe)
                 if not response:
                     self.set_status('ERROR', 'Probing at location %.3f, %.3f timed out' % (point[0], point[1]))
                     return
 
                 # extract result from regex match
-                act_x = float(response.group(1)) - self.profile['offset_x']
-                act_y = float(response.group(2)) - self.profile['offset_y']
+                act_x = float(response.group(1)) + self.profile['offset_x'] # changed to add offset instead of subtract offset
+                act_y = float(response.group(2)) + self.profile['offset_y'] # this way the signs of our x/y offsets can match the signs of the values stored on EEPROM
                 act_z = float(response.group(3))
 
                 # marlin ignores shifted coordinates (G92) for G30, adapt coordinate space dynamically
@@ -294,8 +286,8 @@ class LevelAnythingPlugin(octoprint.plugin.SettingsPlugin,
                 commands.extend([
                     'G90', # absolute coordinates
                     'G0 X%.3f Y%.3f F%.3f' % ( # move
-                        self.profile['home_x'] + self.profile['offset_x'],
-                        self.profile['home_y'] + self.profile['offset_y'],
+                        self.profile['home_x'] - self.profile['offset_x'], # changed to subtract offset instead of add offset
+                        self.profile['home_y'] - self.profile['offset_y'], # this way the signs of our x/y offsets can match the signs of the values stored on EEPROM
                         self.profile['home_feed']
                     ),
                     'G28 Z' # home Z
