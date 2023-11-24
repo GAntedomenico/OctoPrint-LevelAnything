@@ -1,4 +1,5 @@
 # coding=utf-8
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 ########################################################################################################################
 ### Do not forget to adjust the following variables to your own plugin.
@@ -14,7 +15,7 @@ plugin_package = "octoprint_levelanything"
 plugin_name = "OctoPrint-LevelAnything"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.0.1"
+plugin_version = "0.0.2"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
